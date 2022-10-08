@@ -1,12 +1,19 @@
-#include <raylib.h>
-#include <rlgl.h>
+#include <stdio.h>
 #include <math.h>
+
+/* raylib-nuklear -- https://github.com/RobLoach/raylib-nuklear */
+#define RAYLIB_NUKLEAR_IMPLEMENTATION
+#include "dep/raylib-nuklear/raylib-nuklear.h"
+
+/* raylib extra */
+#include <rlgl.h>
 
 // Window Properties
 // -----------------------------------------------------------------------------
 
-#define WIN_WIDTH  800
-#define WIN_HEIGHT 600
+#define WIN_WIDTH     800
+#define WIN_HEIGHT    600
+#define WIN_FONT_SIZE 10
 
 // Render Properties
 // -----------------------------------------------------------------------------
@@ -23,9 +30,7 @@
 	"Scroll up/down to zoom in/out"      \
 	"\n"                                 \
 	"\n"                                 \
-	"R - Toggle auto rotate"             \
-	"\n"                                 \
-	"I - Toggle this info"               \
+	"S - Settings"                       \
 	"\n"                                 \
 	"Q - Exit"
 #define INFO_FG   SPHERE_COL
@@ -43,7 +48,7 @@ sphere_fill_points(int detail, float radius, Vector3 points[detail * detail])
 	int c = 0;
 
 	for (int i = 0; i < detail; i++) {
-		float lat = map(i, 0, detail, -PI/2, PI/2);
+		float lat = map(i, 0, detail, -PI / 2, PI / 2);
 		for (int j = 0; j < detail; j++) {
 			float lon = map(j, 0, detail, -PI, PI);
 
@@ -79,21 +84,46 @@ main(void)
 
 	SetTargetFPS(60);
 
+	struct nk_context *nk_ctx = InitNuklear(WIN_FONT_SIZE);
+
 	// Render Settings
 	// ---------------------------------------------------------------------
-	int   toDisplayDetails = 1;
-	int   toAutoRotate     = 1;
-	float rotx             = 0.0f;
-	float roty             = 0.0f;
-	float posz             = 0.0f;
+	int   to_display_fps     = 1;
+	int   to_display_details = 1;
+	int   to_auto_rotate     = 1;
+	float rotx               = 0.0f;
+	float roty               = 0.0f;
+	float posz               = 0.0f;
+
+	int to_show_settings = 0;
 
 	while (!WindowShouldClose()) {
-		if (IsKeyPressed(KEY_R))
-			toAutoRotate = !toAutoRotate;
+		UpdateNuklear(nk_ctx);
+
+		if (IsKeyPressed(KEY_S))
+			to_show_settings = 1;
 		if (IsKeyPressed(KEY_Q))
 			break;
-		if (IsKeyPressed(KEY_I))
-			toDisplayDetails = !toDisplayDetails;
+
+		// Nuklear GUI Code
+		// -------------------------------------------------------------
+		if (nk_begin(nk_ctx, "Settings", nk_rect(100, 100, 220, 120),
+		             NK_WINDOW_MOVABLE | NK_WINDOW_CLOSABLE)) {
+			nk_layout_row_dynamic(nk_ctx, 20, 1);
+			if (nk_button_label(nk_ctx, "Reset camera"))
+				rotx = roty = posz = 0.0f;
+			nk_layout_row_dynamic(nk_ctx, 20, 2);
+			nk_checkbox_label(nk_ctx, "Show FPS", &to_display_fps);
+			nk_checkbox_label(nk_ctx, "Show Info",
+			                  &to_display_details);
+			nk_layout_row_dynamic(nk_ctx, 20, 1);
+			nk_checkbox_label(nk_ctx, "Auto rotate", &to_auto_rotate);
+		}
+
+		int to_rotate = 1;
+		if (nk_window_is_hovered(nk_ctx) && to_show_settings)
+			to_rotate = 0;
+		nk_end(nk_ctx);
 
 		// Zoom
 		// -------------------------------------------------------------
@@ -105,12 +135,12 @@ main(void)
 		// -------------------------------------------------------------
 		float dt = GetFrameTime();
 
-		if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+		if (to_rotate && IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
 			Vector2 mouseDelta = GetMouseDelta();
 			roty += 0.2 * mouseDelta.x;
 			rotx -= 0.2 * mouseDelta.y;
 		} else {
-			if (toAutoRotate)
+			if (to_auto_rotate)
 				roty -= 3 * dt;
 		}
 
@@ -132,14 +162,24 @@ main(void)
 
 			// Draw Details
 			// -----------------------------------------------------
-			if (toDisplayDetails) {
+			if (to_display_fps)
 				DrawFPS(5, 5);
+			if (to_display_details) {
 				DrawText(INFO_TEXT, 5, 30, INFO_SIZE, INFO_FG);
 			}
+
+			if (to_show_settings)
+				DrawNuklear(nk_ctx);
+			else
+				nk_clear(nk_ctx);
 		}
 		EndDrawing();
+
+		if (nk_window_is_hidden(nk_ctx, "Settings"))
+			to_show_settings = 0;
 	}
 
+	UnloadNuklear(nk_ctx);
 	CloseWindow();
 	return 0;
 }
