@@ -29,6 +29,8 @@
 	"\n"                                 \
 	"Scroll up/down to zoom in/out"      \
 	"\n"                                 \
+	"Arrow keys to move"                 \
+	"\n"                                 \
 	"\n"                                 \
 	"S - Settings"                       \
 	"\n"                                 \
@@ -93,6 +95,8 @@ main(void)
 	int   to_auto_rotate     = 1;
 	float rotx               = 0.0f;
 	float roty               = 0.0f;
+	float posx               = 0.0f;
+	float posy               = 0.0f;
 	float posz               = 0.0f;
 
 	int to_show_settings = 0;
@@ -104,32 +108,82 @@ main(void)
 			to_show_settings = 1;
 		if (IsKeyPressed(KEY_Q))
 			break;
+		if (IsKeyDown(KEY_UP))
+			posy -= 0.1f;
+		if (IsKeyDown(KEY_DOWN))
+			posy += 0.1f;
+		if (IsKeyDown(KEY_LEFT))
+			posx -= 0.1f;
+		if (IsKeyDown(KEY_RIGHT))
+			posx += 0.1f;
 
 		// Nuklear GUI Code
 		// -------------------------------------------------------------
-		if (nk_begin(nk_ctx, "Settings", nk_rect(100, 100, 220, 120),
-		             NK_WINDOW_MOVABLE | NK_WINDOW_CLOSABLE)) {
-			nk_layout_row_dynamic(nk_ctx, 20, 1);
-			if (nk_button_label(nk_ctx, "Reset camera"))
-				rotx = roty = posz = 0.0f;
+		if (nk_begin(nk_ctx, "Settings", nk_rect(100, 100, 160, 265),
+		             NK_WINDOW_MOVABLE | NK_WINDOW_CLOSABLE |
+		                     NK_WINDOW_NO_SCROLLBAR)) {
 			nk_layout_row_dynamic(nk_ctx, 20, 2);
 			nk_checkbox_label(nk_ctx, "Show FPS", &to_display_fps);
 			nk_checkbox_label(nk_ctx, "Show Info",
 			                  &to_display_details);
+
+			nk_label(nk_ctx, "Zoom level", NK_TEXT_LEFT);
 			nk_layout_row_dynamic(nk_ctx, 20, 1);
-			nk_checkbox_label(nk_ctx, "Auto rotate", &to_auto_rotate);
+			nk_slider_float(nk_ctx, -14.0, &posz, 20.0, 0.1);
+
+			nk_layout_row_dynamic(nk_ctx, 20, 1);
+			nk_label(nk_ctx, "Position", NK_TEXT_LEFT);
+
+			nk_button_push_behavior(nk_ctx, NK_BUTTON_REPEATER);
+			{
+				nk_layout_row_dynamic(nk_ctx, 25, 5);
+				nk_spacing(nk_ctx, 2);
+				if (nk_button_symbol(nk_ctx,
+				                     NK_SYMBOL_TRIANGLE_UP))
+					posy -= 0.1f;
+
+				nk_layout_row_dynamic(nk_ctx, 25, 5);
+				nk_spacing(nk_ctx, 1);
+				if (nk_button_symbol(nk_ctx,
+				                     NK_SYMBOL_TRIANGLE_LEFT))
+					posx -= 0.1f;
+				nk_spacing(nk_ctx, 1);
+				if (nk_button_symbol(nk_ctx,
+				                     NK_SYMBOL_TRIANGLE_RIGHT))
+					posx += 0.1f;
+
+				nk_layout_row_dynamic(nk_ctx, 25, 5);
+				nk_spacing(nk_ctx, 2);
+				if (nk_button_symbol(nk_ctx,
+				                     NK_SYMBOL_TRIANGLE_DOWN))
+					posy += 0.1f;
+			}
+			nk_button_pop_behavior(nk_ctx);
+
+			nk_layout_row_dynamic(nk_ctx, 20, 1);
+			nk_checkbox_label(nk_ctx, "Auto rotate",
+			                  &to_auto_rotate);
+			nk_layout_row_dynamic(nk_ctx, 20, 1);
+			if (nk_button_label(nk_ctx,
+			                    "Reset camera and position"))
+				rotx = roty = posx = posy = posz = 0.0f;
 		}
 
 		int to_rotate = 1;
-		if (nk_window_is_hovered(nk_ctx) && to_show_settings)
+		int to_zoom   = 1;
+		if (nk_window_is_hovered(nk_ctx) && to_show_settings) {
 			to_rotate = 0;
+			to_zoom   = 0;
+		}
 		nk_end(nk_ctx);
 
 		// Zoom
 		// -------------------------------------------------------------
-		float zoomFactor = GetMouseWheelMove();
-		if (posz - zoomFactor > -15 && posz - zoomFactor < 10)
+		float zoomFactor = -GetMouseWheelMove();
+		if (to_zoom &&
+		    (posz - zoomFactor > -14.0 && posz - zoomFactor < 20.0)) {
 			posz -= zoomFactor;
+		}
 
 		// Rotation
 		// -------------------------------------------------------------
@@ -152,7 +206,7 @@ main(void)
 			{
 				// Draw Sphere
 				// ---------------------------------------------
-				rlTranslatef(0, 0, posz);
+				rlTranslatef(posx, posy, -posz);
 				rlRotatef(rotx, 1, 0, 0);
 				rlRotatef(roty, 0, 1, 0);
 				for (int i = 0; i < detail * detail; i++)
